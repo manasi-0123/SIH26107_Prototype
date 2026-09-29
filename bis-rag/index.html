@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BIS Insight AI — Bureau of Indian Standards AI Assistant (SIH PS 26107)</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          },
+          fontSize: {
+            'base-ui': ['15.5px', { lineHeight: '1.68' }],
+            'sm-ui': ['13.5px', { lineHeight: '1.5' }],
+          },
+          colors: {
+            gov: {
+              navy: '#0f2238',
+              navyHover: '#183659',
+              sidebar: '#f9fafb',
+              sidebarBorder: '#e5e7eb',
+              canvasBg: '#ffffff',
+              border: '#e5e7eb',
+              body: '#1e293b',
+              muted: '#64748b',
+              accent: '#d97706',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Clean custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #d1d5db;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #9ca3af;
+    }
+
+    /* Soft typing indicator animation */
+    @keyframes pulseSoft {
+      0%, 100% { opacity: 0.3; transform: scale(0.85); }
+      50% { opacity: 1; transform: scale(1.15); }
+    }
+    .typing-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: #64748b;
+      animation: pulseSoft 1.3s infinite ease-in-out both;
+    }
+    .typing-dot:nth-child(1) { animation-delay: 0s; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    /* Message animation */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .msg-fade-in {
+      animation: fadeUp 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Markdown paragraph formatting rules with dedicated gaps for bold headers */
+    .chat-prose p {
+      margin-bottom: 0.95rem;
+      line-height: 1.68;
+    }
+    .chat-prose p:last-child {
+      margin-bottom: 0;
+    }
+    /* Bold topic followed by a colon is treated as a distinct block with proper spacing */
+    .chat-prose .bold-topic-block {
+      display: block;
+      margin-top: 1.15rem;
+      margin-bottom: 0.45rem;
+      font-weight: 600;
+      color: #0f2238;
+      font-size: 15.5px;
+    }
+    .chat-prose ul {
+      margin-top: 0.4rem;
+      margin-bottom: 0.95rem;
+      padding-left: 1.25rem;
+      list-style-type: disc;
+    }
+    .chat-prose li {
+      margin-bottom: 0.4rem;
+      line-height: 1.6;
+    }
+    .chat-prose code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: #f1f5f9;
+      color: #0f2238;
+      padding: 0.15rem 0.35rem;
+      border-radius: 0.35rem;
+      border: 1px solid #e2e8f0;
+    }
+    .chat-prose pre {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      overflow-x: auto;
+      margin-bottom: 0.95rem;
+      font-family: ui-monospace, monospace;
+      font-size: 0.88em;
+    }
+  </style>
+</head>
+<body class="bg-gov-canvasBg text-gov-body font-sans h-screen flex overflow-hidden antialiased text-base-ui">
+
+  <aside 
+    id="sidebar" 
+    class="w-64 bg-gov-sidebar border-r border-gov-sidebarBorder flex flex-col shrink-0 transition-all duration-300 z-30 select-none fixed inset-y-0 left-0 md:static md:translate-x-0 -translate-x-full"
+  >
+    <!-- Sidebar Top Icons (ChatGPT Style: New chat, search, close) -->
+    <div class="p-3 flex items-center justify-between border-b border-gov-sidebarBorder/60">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-md bg-gov-navy text-white flex items-center justify-center font-bold text-xs tracking-wider">
+          BIS
+        </div>
+        <span class="font-semibold text-sm tracking-tight text-gov-navy">Insight AI</span>
+      </div>
+
+      <div class="flex items-center gap-1">
+        <button 
+          id="collapseSidebarBtn" 
+          title="Close sidebar"
+          class="p-1.5 rounded-lg text-gov-muted hover:text-gov-navy hover:bg-slate-200/70 transition-colors"
+        >
+          <i data-lucide="panel-left-close" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Navigation Actions -->
+    <div class="p-2 space-y-1">
+      <button 
+        id="sidebarNewChatBtn" 
+        class="w-full flex items-center justify-between px-3 py-2 text-sm-ui font-medium text-gov-navy hover:bg-slate-200/70 rounded-lg transition-colors group"
+      >
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="square-pen" class="w-4 h-4 text-gov-muted group-hover:text-gov-navy"></i>
+          <span>New chat</span>
+        </div>
+      </button>
+
+      <button 
+        id="searchConversationsBtn" 
+        class="w-full flex items-center gap-2.5 px-3 py-2 text-sm-ui text-gov-muted hover:text-gov-navy hover:bg-slate-200/70 rounded-lg transition-colors group"
+      >
+        <i data-lucide="search" class="w-4 h-4 text-gov-muted group-hover:text-gov-navy"></i>
+        <span>Search chats</span>
+      </button>
+    </div>
+
+    <!-- Conversation History Lists (Pinned & Recents matching reference screenshot) -->
+    <div class="flex-1 overflow-y-auto px-2 py-3 space-y-4 text-xs font-medium">
+      
+      <!-- Pinned Section -->
+      <div>
+        <div class="px-3 pb-1 text-[11px] font-semibold text-gov-muted uppercase tracking-wider">
+          Pinned
+        </div>
+        <div class="space-y-0.5" id="pinnedList">
+          <button class="chat-history-item w-full flex items-center gap-2.5 px-3 py-2 text-sm-ui rounded-lg text-gov-body hover:bg-slate-200/70 transition-colors text-left truncate group" data-chat-id="pinned-1">
+            <i data-lucide="message-square" class="w-3.5 h-3.5 text-gov-muted shrink-0"></i>
+            <span class="truncate">IS 14543 Drinking Water</span>
+          </button>
+          <button class="chat-history-item w-full flex items-center gap-2.5 px-3 py-2 text-sm-ui rounded-lg text-gov-body hover:bg-slate-200/70 transition-colors text-left truncate group" data-chat-id="pinned-2">
+            <i data-lucide="message-square" class="w-3.5 h-3.5 text-gov-muted shrink-0"></i>
+            <span class="truncate">Gold Hallmarking &amp; HUID</span>
+          </button>
+          <button class="chat-history-item w-full flex items-center gap-2.5 px-3 py-2 text-sm-ui rounded-lg text-gov-body hover:bg-slate-200/70 transition-colors text-left truncate group" data-chat-id="pinned-3">
+            <i data-lucide="message-square" class="w-3.5 h-3.5 text-gov-muted shrink-0"></i>
+            <span class="truncate">Scheme-I ISI Application</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Recents Section -->
+      <div>
+        <div class="px-3 pb-1 text-[11px] font-semibold text-gov-muted uppercase tracking-wider">
+          Recents
+        </div>
+        <div class="space-y-0.5" id="recentsList">
+          <button class="chat-history-item active-session w-full flex items-center gap-2.5 px-3 py-2 text-sm-ui rounded-lg bg-slate-200/90 font-medium text-gov-navy transition-colors text-left truncate group" data-chat-id="current">
+            <i data-lucide="message-square" class="w-3.5 h-3.5 text-gov-navy shrink-0"></i>
+            <span class="truncate" id="activeChatLabel">Current Session</span>
+          </button>
+          <button class="chat-history-item w-full flex items-center gap-2.5 px-3 py-2 text-sm-ui rounded-lg text-gov-body hover:bg-slate-200/70 transition-colors text-left truncate group" data-chat-id="recent-1">
+            <i data-lucide="message-square" class="w-3.5 h-3.5 text-gov-muted shrink-0"></i>
+            <span class="truncate">Toy Safety (IS 9873)</span>
+          </button>
+          <button class="chat-history-item w-full flex items-center gap-2.5 px-3 py-2 text-sm-ui rounded-lg text-gov-body hover:bg-slate-200/70 transition-colors text-left truncate group" data-chat-id="recent-2">
+            <i data-lucide="message-square" class="w-3.5 h-3.5 text-gov-muted shrink-0"></i>
+            <span class="truncate">Cement Conformity IS 1489</span>
+          </button>
+          <button class="chat-history-item w-full flex items-center gap-2.5 px-3 py-2 text-sm-ui rounded-lg text-gov-body hover:bg-slate-200/70 transition-colors text-left truncate group" data-chat-id="recent-3">
+            <i data-lucide="message-square" class="w-3.5 h-3.5 text-gov-muted shrink-0"></i>
+            <span class="truncate">CRS Registration Portal</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Sidebar Bottom User Profile Card -->
+    <div class="p-3 border-t border-gov-sidebarBorder/60 bg-gov-sidebar">
+      <div class="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-8 h-8 rounded-full bg-gov-navy text-white text-xs font-semibold flex items-center justify-center shrink-0">
+            MS
+          </div>
+          <div class="truncate text-left">
+            <div class="text-sm-ui font-semibold text-gov-navy truncate">Manasi Shivakumar</div>
+            <div class="text-[11px] text-gov-muted">SIH PS 26107</div>
+          </div>
+        </div>
+        <i data-lucide="more-horizontal" class="w-4 h-4 text-gov-muted shrink-0"></i>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Mobile Overlay Backdrop -->
+  <div id="mobileBackdrop" class="fixed inset-0 bg-black/40 z-20 hidden md:hidden"></div>
+
+  <div class="flex-1 flex flex-col h-full overflow-hidden bg-white">
+    
+    <!-- Top Bar with Sidebar Open Toggle & BIS Title -->
+    <header class="h-12 border-b border-gov-border px-4 flex items-center justify-between bg-white shrink-0 z-10">
+      <div class="flex items-center gap-2">
+        <button 
+          id="openSidebarBtn" 
+          title="Open sidebar"
+          class="p-1.5 rounded-lg text-gov-muted hover:text-gov-navy hover:bg-slate-100 transition-colors"
+        >
+          <i data-lucide="panel-left" class="w-4 h-4"></i>
+        </button>
+
+        <span class="text-xs font-semibold uppercase tracking-wider text-gov-muted px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">
+          SIH PS 26107
+        </span>
+      </div>
+
+      <div class="flex items-center gap-2 text-xs text-gov-muted">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="hidden sm:inline">Gemini Live</span>
+      </div>
+    </header>
+
+    <!-- Chat Messages Scroll Area -->
+    <main class="flex-1 overflow-y-auto px-4 sm:px-6 py-6" id="chatContainer">
+      <div class="max-w-3xl mx-auto space-y-6" id="messagesList">
+
+        <!-- Welcome State (Cleanly Aligned) -->
+        <div id="welcomeScreen" class="w-full max-w-2xl mx-auto py-8 sm:py-12 flex flex-col items-center">
+          
+          <!-- Emblem & Header Info (Centered with intentional alignment) -->
+          <div class="w-full flex flex-col items-center text-center space-y-3 mb-8">
+            <div class="w-12 h-12 rounded-2xl bg-slate-50 border border-gov-border shadow-xs flex items-center justify-center text-gov-navy font-bold text-sm tracking-widest">
+              BIS
+            </div>
+
+            <div class="space-y-1.5 max-w-xl">
+              <h2 class="text-xl sm:text-2xl font-semibold text-gov-navy tracking-tight">
+                Bureau of Indian Standards Assistant
+              </h2>
+              <p class="text-sm-ui text-gov-muted leading-relaxed font-normal">
+                Ask about Indian Standard specifications (IS Codes), Scheme-I ISI application procedure, CRS electronics registration, or Hallmarking &amp; HUID verification.
+              </p>
+            </div>
+          </div>
+
+          <!-- Section Label for Recommended Queries -->
+          <div class="w-full mb-3 flex items-center gap-2">
+            <span class="text-[12px] font-medium uppercase tracking-wider text-gov-muted">
+              Suggested Questions
+            </span>
+            <div class="h-px bg-slate-200 flex-1"></div>
+          </div>
+
+          <!-- 3 Recommended Prompts: Crisp, full-width vertical alignment with uniform padding & layout -->
+          <div class="w-full flex flex-col gap-3">
+            
+            <!-- Card 1 -->
+            <button class="prompt-chip w-full group bg-white hover:bg-slate-50/90 border border-gov-border hover:border-slate-300 p-4 rounded-xl transition-all duration-150 flex items-center justify-between text-left shadow-2xs hover:shadow-xs">
+              <div class="flex items-start gap-3.5 pr-3">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 text-gov-navy flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-slate-200/70 transition-colors">
+                  <i data-lucide="droplets" class="w-4 h-4 text-gov-navy"></i>
+                </div>
+                <div class="space-y-0.5">
+                  <span class="text-sm-ui font-semibold text-gov-navy block leading-snug">
+                    What is the BIS standard (IS Code) for packaged drinking water?
+                  </span>
+                  <span class="text-xs text-gov-muted block leading-relaxed">
+                    Testing protocols, chemical thresholds, and mandatory CM/L licensing
+                  </span>
+                </div>
+              </div>
+              <div class="w-7 h-7 rounded-lg flex items-center justify-center text-gov-muted group-hover:text-gov-navy group-hover:bg-slate-200/50 transition-all shrink-0">
+                <i data-lucide="arrow-up-right" class="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"></i>
+              </div>
+            </button>
+
+            <!-- Card 2 -->
+            <button class="prompt-chip w-full group bg-white hover:bg-slate-50/90 border border-gov-border hover:border-slate-300 p-4 rounded-xl transition-all duration-150 flex items-center justify-between text-left shadow-2xs hover:shadow-xs">
+              <div class="flex items-start gap-3.5 pr-3">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 text-gov-navy flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-slate-200/70 transition-colors">
+                  <i data-lucide="file-check" class="w-4 h-4 text-gov-navy"></i>
+                </div>
+                <div class="space-y-0.5">
+                  <span class="text-sm-ui font-semibold text-gov-navy block leading-snug">
+                    How do I apply for an ISI mark license under Scheme-I?
+                  </span>
+                  <span class="text-xs text-gov-muted block leading-relaxed">
+                    Manakonline registration, Scheme of Inspection &amp; Testing (SIT), and audit steps
+                  </span>
+                </div>
+              </div>
+              <div class="w-7 h-7 rounded-lg flex items-center justify-center text-gov-muted group-hover:text-gov-navy group-hover:bg-slate-200/50 transition-all shrink-0">
+                <i data-lucide="arrow-up-right" class="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"></i>
+              </div>
+            </button>
+
+            <!-- Card 3 -->
+            <button class="prompt-chip w-full group bg-white hover:bg-slate-50/90 border border-gov-border hover:border-slate-300 p-4 rounded-xl transition-all duration-150 flex items-center justify-between text-left shadow-2xs hover:shadow-xs">
+              <div class="flex items-start gap-3.5 pr-3">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 text-gov-navy flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-slate-200/70 transition-colors">
+                  <i data-lucide="award" class="w-4 h-4 text-gov-navy"></i>
+                </div>
+                <div class="space-y-0.5">
+                  <span class="text-sm-ui font-semibold text-gov-navy block leading-snug">
+                    What are the mandatory requirements for gold hallmarking?
+                  </span>
+                  <span class="text-xs text-gov-muted block leading-relaxed">
+                    6-digit alphanumeric HUID, purity standards (IS 1417), and consumer verification
+                  </span>
+                </div>
+              </div>
+              <div class="w-7 h-7 rounded-lg flex items-center justify-center text-gov-muted group-hover:text-gov-navy group-hover:bg-slate-200/50 transition-all shrink-0">
+                <i data-lucide="arrow-up-right" class="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"></i>
+              </div>
+            </button>
+
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Bottom Input Box -->
+    <div class="px-4 pb-4 pt-1 bg-gradient-to-t from-white via-white to-transparent shrink-0">
+      <div class="max-w-3xl mx-auto space-y-2">
+        <form id="chatForm" class="relative bg-white rounded-2xl border border-gov-border shadow-sm focus-within:shadow-md focus-within:border-slate-400 transition-all p-2.5 flex flex-col gap-1">
+          
+          <textarea
+            id="userInput"
+            rows="1"
+            placeholder="Ask a question about BIS standards, conformity schemes, or certification..."
+            class="w-full bg-transparent px-3 py-1 text-base-ui text-gov-body placeholder-slate-400 focus:outline-none resize-none max-h-36 leading-relaxed"
+          ></textarea>
+
+          <div class="flex items-center justify-between pt-1 px-1">
+            <span class="text-[11px] text-gov-muted px-2 py-0.5 hidden sm:inline">Press Enter to send &bull; Shift+Enter for newline</span>
+
+            <!-- Circular Send Button -->
+            <button
+              type="submit"
+              id="sendBtn"
+              disabled
+              class="w-8 h-8 rounded-full bg-gov-navy text-white flex items-center justify-center transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed hover:bg-gov-navyHover"
+              title="Send message"
+            >
+              <i data-lucide="arrow-up" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+        </form>
+
+        <p class="text-[11px] text-center text-gov-muted">
+          BIS Insight AI is an AI assistant prototype for SIH PS 26107. Verify statutory gazettes at <a href="https://www.manakonline.in" target="_blank" rel="noopener noreferrer" class="underline hover:text-gov-navy">manakonline.in</a>.
+        </p>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    // DOM Elements
+    const sidebar = document.getElementById('sidebar');
+    const openSidebarBtn = document.getElementById('openSidebarBtn');
+    const collapseSidebarBtn = document.getElementById('collapseSidebarBtn');
+    const mobileBackdrop = document.getElementById('mobileBackdrop');
+    const sidebarNewChatBtn = document.getElementById('sidebarNewChatBtn');
+    const activeChatLabel = document.getElementById('activeChatLabel');
+
+    const chatContainer = document.getElementById('chatContainer');
+    const messagesList = document.getElementById('messagesList');
+    const welcomeScreen = document.getElementById('welcomeScreen');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const chatForm = document.getElementById('chatForm');
+
+    // Sidebar Toggle Logic
+    function toggleSidebar(show) {
+      if (show) {
+        sidebar.classList.remove('-translate-x-full');
+        mobileBackdrop.classList.remove('hidden');
+      } else {
+        sidebar.classList.add('-translate-x-full');
+        mobileBackdrop.classList.add('hidden');
+      }
+    }
+
+    openSidebarBtn.addEventListener('click', () => toggleSidebar(true));
+    collapseSidebarBtn.addEventListener('click', () => toggleSidebar(false));
+    mobileBackdrop.addEventListener('click', () => toggleSidebar(false));
+
+    // Multi-turn conversation state for Gemini API
+    let conversationHistory = [];
+    const apiKey = ""; // Canvas runtime automatically supplies the API key when left empty
+
+    const systemPrompt = `You are "BIS Insight AI", an authoritative and helpful AI Assistant for the Bureau of Indian Standards (BIS), Ministry of Consumer Affairs, Government of India, developed for Smart India Hackathon PS 26107.
+
+Formatting & Spacing Guidelines:
+1. When introducing any new topic, concept, or section starting with bold text followed by a colon (e.g. "**IS 14543:**" or "**Procedure:**"), ensure it starts as its own separate paragraph.
+2. Separate concepts and paragraphs with generous breathing space. Never bunch multiple distinct steps or bullet points tightly together.
+3. Be precise with IS codes (e.g., IS 14543 for Packaged Drinking Water, IS 1417 for Gold Hallmarking, IS 9873 for Toy Safety, IS 1786 for TMT Steel Bars).
+4. Clearly distinguish between mandatory certification (Scheme-I ISI, CRS) and voluntary standards.`;
+
+    // Auto-resizing textarea & button trigger
+    userInput.addEventListener('input', () => {
+      userInput.style.height = 'auto';
+      userInput.style.height = Math.min(userInput.scrollHeight, 140) + 'px';
+
+      const hasText = userInput.value.trim().length > 0;
+      if (hasText) {
+        sendBtn.removeAttribute('disabled');
+      } else {
+        sendBtn.setAttribute('disabled', 'true');
+      }
+    });
+
+    userInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const text = userInput.value.trim();
+        if (text) {
+          handleUserSubmission(text);
+        }
+      }
+    });
+
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = userInput.value.trim();
+      if (text) {
+        handleUserSubmission(text);
+      }
+    });
+
+    // Prompt Chips Click
+    document.addEventListener('click', (e) => {
+      const chip = e.target.closest('.prompt-chip');
+      if (chip) {
+        const querySpan = chip.querySelector('span.font-semibold');
+        if (querySpan) {
+          handleUserSubmission(querySpan.innerText.trim());
+        }
+      }
+    });
+
+    // Sidebar items selection
+    document.addEventListener('click', (e) => {
+      const item = e.target.closest('.chat-history-item');
+      if (item && !item.classList.contains('active-session')) {
+        const title = item.querySelector('span').innerText;
+        startNewChat(title);
+        if (window.innerWidth < 768) toggleSidebar(false);
+      }
+    });
+
+    sidebarNewChatBtn.addEventListener('click', () => {
+      startNewChat();
+      if (window.innerWidth < 768) toggleSidebar(false);
+    });
+
+    function startNewChat(topicTitle = null) {
+      conversationHistory = [];
+      messagesList.innerHTML = '';
+      messagesList.appendChild(welcomeScreen);
+      welcomeScreen.classList.remove('hidden');
+      activeChatLabel.innerText = topicTitle ? topicTitle : 'Current Session';
+      userInput.value = '';
+      userInput.style.height = 'auto';
+      sendBtn.setAttribute('disabled', 'true');
+      lucide.createIcons();
+
+      if (topicTitle) {
+        handleUserSubmission(`Give me a detailed overview of ${topicTitle}`);
+      }
+    }
+
+    function scrollToBottom() {
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    // Markdown Formatter with bold-colon paragraphs and proper spacing
+    function formatMarkdown(text) {
+      let formatted = escapeHtml(text);
+
+      // Make URLs clickable
+formatted = formatted.replace(
+  /(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g,
+  '<a href="$1" target="_blank" rel="noopener noreferrer" class="underline text-blue-700 hover:text-blue-900 break-all">$1</a>'
+);
+
+      // Convert code blocks
+      formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+      // Inline code
+      formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // Treat bold topics with colons as distinct paragraph headers with dedicated gap
+      // Matches **Topic:** or **1. Topic:** or **Section Name:**
+      formatted = formatted.replace(/(?:\r\n|\r|\n)*\*\*([^*]+?):\*\*(?:\s*)/g, '</p><div class="bold-topic-block">$1:</div><p>');
+
+      // General bold
+      formatted = formatted.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>');
+      // Italics
+      formatted = formatted.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+
+      // Bullet points
+      formatted = formatted.replace(/(?:^|\n)[-•*]\s+(.+)/g, '<li class="my-1">$1</li>');
+      formatted = formatted.replace(/(<li.*<\/li>)/s, '<ul>$1</ul>');
+
+      // Paragraph breaks
+      formatted = formatted.split(/\n\n+/).map(p => {
+        p = p.trim();
+        if (!p) return '';
+        if (p.startsWith('<pre>') || p.startsWith('<ul>') || p.startsWith('<div class="bold-topic-block">')) {
+          return p;
+        }
+        return `<p>${p}</p>`;
+      }).join('');
+
+      return formatted;
+    }
+
+    function appendUserMessage(text) {
+      if (welcomeScreen) {
+        welcomeScreen.classList.add('hidden');
+      }
+
+      const msgEl = document.createElement('div');
+      msgEl.className = 'flex justify-end msg-fade-in';
+      msgEl.innerHTML = `
+        <div class="max-w-[85%] sm:max-w-[75%] bg-gov-navy text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-base-ui leading-relaxed shadow-xs font-normal">
+          ${escapeHtml(text)}
+        </div>
+      `;
+      messagesList.appendChild(msgEl);
+      scrollToBottom();
+    }
+
+    function showTypingIndicator() {
+      const id = 'typing_' + Date.now();
+      const indicator = document.createElement('div');
+      indicator.id = id;
+      indicator.className = 'flex items-start gap-3 msg-fade-in text-base-ui';
+      indicator.innerHTML = `
+        <div class="w-8 h-8 rounded-lg bg-gov-sidebar border border-gov-border text-gov-navy flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+          BIS
+        </div>
+        <div class="bg-white border border-gov-border px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5 shadow-2xs">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+        </div>
+      `;
+      messagesList.appendChild(indicator);
+      scrollToBottom();
+      return id;
+    }
+
+    function removeTypingIndicator(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }
+
+    window.copyResponse = function(btn) {
+      const container = btn.closest('.assistant-bubble').querySelector('.chat-prose');
+      if (!container) return;
+
+      const textarea = document.createElement('textarea');
+      textarea.value = container.innerText;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+
+      const label = btn.querySelector('.copy-text');
+      if (label) {
+        const prev = label.innerText;
+        label.innerText = 'Copied!';
+        setTimeout(() => {
+          label.innerText = prev;
+        }, 1800);
+      }
+    };
+
+    // Call Gemini API with exponential backoff & multi-turn memory
+    async function callGeminiApi(userQuery) {
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      question: userQuery
+    })
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.details || result.error || "RAG backend error");
+  }
+
+  let answer = result.answer || "I couldn't find this in my BIS sources.";
+
+  // Add the sources returned by the RAG backend.
+  if (result.sources && result.sources.length > 0) {
+    answer += "\n\n**Sources:**\n";
+
+    result.sources.forEach((source, index) => {
+      answer += `- ${source.source}, ${source.section}, ${source.id}`;
+      if (source.url) {
+        answer += ` — ${source.url}`;
+      }
+      answer += "\n";
+    });
+  }
+
+  return answer;
+}
+
+    async function handleUserSubmission(queryText) {
+      appendUserMessage(queryText);
+
+      // Update sidebar title if first message
+      if (activeChatLabel.innerText === 'Current Session') {
+        activeChatLabel.innerText = queryText.length > 24 ? queryText.slice(0, 24) + '...' : queryText;
+      }
+
+      // Reset input
+      userInput.value = '';
+      userInput.style.height = 'auto';
+      sendBtn.setAttribute('disabled', 'true');
+
+      // Typing animation
+      const indicatorId = showTypingIndicator();
+
+      try {
+        const botResponse = await callGeminiApi(queryText);
+        removeTypingIndicator(indicatorId);
+
+        const botMsg = document.createElement('div');
+        botMsg.className = 'flex items-start gap-3 msg-fade-in assistant-bubble group';
+        botMsg.innerHTML = `
+          <div class="w-8 h-8 rounded-lg bg-gov-sidebar border border-gov-border text-gov-navy flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-2xs">
+            BIS
+          </div>
+
+          <div class="flex-1 space-y-2 text-base-ui leading-relaxed text-gov-body max-w-2xl">
+            <div class="chat-prose">
+              ${formatMarkdown(botResponse)}
+            </div>
+            
+            <!-- Bottom action row: Copy button -->
+            <div class="flex items-center gap-3 pt-2">
+              <button 
+                onclick="copyResponse(this)" 
+                class="text-gov-muted hover:text-gov-navy text-xs font-medium flex items-center gap-1.5 transition-colors py-0.5"
+                title="Copy response"
+              >
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                <span class="copy-text">Copy</span>
+              </button>
+            </div>
+          </div>
+        `;
+        messagesList.appendChild(botMsg);
+        lucide.createIcons();
+        scrollToBottom();
+
+      } catch (error) {
+        removeTypingIndicator(indicatorId);
+        
+        // Graceful fallback for offline or quota issues
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'flex items-start gap-3 msg-fade-in assistant-bubble';
+        errorMsg.innerHTML = `
+          <div class="w-8 h-8 rounded-lg bg-red-50 border border-red-200 text-red-700 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+            !
+          </div>
+          <div class="flex-1 text-base-ui text-gov-body">
+            <div class="chat-prose p-3.5 rounded-xl border border-red-200 bg-red-50/50 text-red-900 space-y-1">
+              <div class="bold-topic-block text-red-950">Connection Notice:</div>
+              <p>Unable to connect to the Gemini service. Please check your network connection or API quota.</p>
+            </div>
+          </div>
+        `;
+        messagesList.appendChild(errorMsg);
+        scrollToBottom();
+      }
+    }
+  </script>
+</body>
+</html>
